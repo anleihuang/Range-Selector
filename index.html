@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<head>
+<meta charset="utf-8">
+<title>Time Series w/ Range selector (Practice) </title>
+
+<!-- load javascript libraries -->
+<script src="./lib/d3.min.js"></script>
+
+
+<style>
+body {
+  font: 12px Arial;
+}
+
+.line {
+  fill: none;
+  stroke: blue;
+  stroke-width: 1px;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.brush .extent {
+  stroke: #7c7c7c;
+  fill-opacity: .2;
+  shape-rendering: crispEdges;
+}
+</style>
+</head>
+
+<body>
+
+<h3>Range Selector</h3>
+<div id="time_series_chart"> </div>
+
+</body>
+<script> 
+
+var parseDate = d3.time.format("%Y-%m-%dT%H:%M").parse;
+
+	
+d3.csv("./data/Step 3_2018-04-01_3month_Result.csv", function(d) {
+	return{
+		date : parseDate(d["PST"]),
+		co2 : +d["_CO2_merged.csv_value"],
+		fcu : +d["_Fan_Coil_Amp_merged.csv_value"],
+		return_temp : +d["_Return_Temp_merged.csv_value"],
+		supply_temp : +d["_Supply_Temp_merged.csv_value"]	
+	};
+}, function(data) {
+
+	
+var margin = {top: 20, right: 20, bottom: 100, left: 50},
+    margin_context = {top: 500, right: 20, bottom: 20, left: 50},
+    width = 1500 - margin.left - margin.right,
+    height_focus = 600 - margin.top - margin.bottom,
+    height_context = 600 - margin_context.top - margin_context.bottom;
+
+var svg = d3.select("#time_series_chart").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height_focus + margin.top + margin.bottom);
+
+svg.append("defs").append("clipPath")
+    .attr("id", "clip")
+	.append("rect")
+    .attr("width", width)
+    .attr("height", height_focus);
+
+var focus = svg.append("g")
+    .attr("class", "focus")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+var context = svg.append("g")
+    .attr("class", "context")
+    .attr("transform", "translate(" + margin_context.left + "," + margin_context.top + ")");
+	
+
+var x_focus = d3.time.scale().range([0, width]),
+    x_context = d3.time.scale().range([0, width]),
+    y_focus = d3.scale.linear().range([height_focus, 0]),
+    y_context = d3.scale.linear().range([height_context, 0]);
+
+var xAxis = d3.svg.axis().scale(x_focus).orient("bottom"),
+    xAxis2 = d3.svg.axis().scale(x_context).orient("bottom"),
+    yAxis = d3.svg.axis().scale(y_focus).orient("left");
+
+var brush = d3.svg.brush()
+    .x(x_context)
+    .on("brush", brushed);
+
+var contextLine = d3.svg.line()
+    .interpolate("linear")
+    .x(function(d) { return x_context(d.date); })
+    .y(function(d) { return y_context(d.supply_temp); });
+	
+var line = d3.svg.line()
+    .interpolate("linear")
+	.x(function(d) { return x_focus(d.date); })
+    .y(function(d) { return y_focus(d.supply_temp); });
+	
+var line2 = d3.svg.line()
+    .interpolate("linear")
+    .x(function(d) { return x_focus(d.date); })
+    .y(function(d) { return y_focus(d.return_temp); });
+
+
+x_focus.domain(d3.extent(data.map(function(d) { return d.date; })));
+y_focus.domain([0, d3.max(data.map(function(d) { return d3.max([d.supply_temp,d.return_temp]); }))]);
+x_context.domain(x_focus.domain());
+y_context.domain(y_focus.domain());
+
+focus.append("g")
+  .attr("class", "x axis")
+  .attr("transform", "translate(0," + height_focus + ")")
+  .call(xAxis);
+
+focus.append("g")
+  .attr("class", "y axis")
+  .call(yAxis);
+
+context.append("g")
+  .attr("class", "x axis")
+  .attr("transform", "translate(0," + height_context + ")")
+  .call(xAxis2);
+
+focus.append("path")
+  .datum(data)
+  .attr("class", "line")
+  .attr("id","return")
+  .attr("clip-path", "url(#clip)")
+  .attr("d", line);
+  
+focus.append("path")
+  .datum(data)
+  .attr("class", "line")
+  .attr("id","supply")
+  .attr("clip-path", "url(#clip)")
+  .style("stroke", "green")
+  .attr("d", line2);
+
+context.append("path")
+  .datum(data)
+  .attr("class", "line")
+  .attr("d", contextLine);	  
+  
+context.append("g")
+  .attr("class", "x brush")
+  .call(brush)
+.selectAll("rect")
+  .attr("y", -6)
+  .attr("height", height_context + 7);
+  
+function brushed() {
+  x.domain(brush.empty() ? x2.domain() : brush.extent());
+  focus.select("#supply").attr("d", line);
+  focus.select("#return").attr("d", line2);
+  focus.select(".x.axis").call(xAxis);
+};
+
+legend = focus.append("g")
+  .attr("class","legend")
+  .attr("transform","translate(30,30)")  
+  .style("font-size","14px")
+ 
+legend.append('text')
+  .text("Return Air Temp (deg F)")
+  .style("stroke", "blue")
+  
+legend.append('text')
+  .text("Supply Air Temp (deg F)")
+  .style("stroke", "green")
+  .attr("y", 20)
+
+});
+</script>
